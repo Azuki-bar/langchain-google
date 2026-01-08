@@ -4936,3 +4936,84 @@ def test_labels_passed_to_generate_content_config() -> None:
 
     assert config.labels is not None
     assert config.labels == {"env": "production", "team": "ml"}
+
+
+def test_labels_none_by_default() -> None:
+    """Test that `labels` is `None` by default."""
+    llm = ChatGoogleGenerativeAI(
+        model=MODEL_NAME,
+        google_api_key=SecretStr(FAKE_API_KEY),
+    )
+    assert llm.labels is None
+
+    messages: list[BaseMessage] = [HumanMessage(content="Hello")]
+    request = llm._prepare_request(messages)
+    config = request["config"]
+
+    assert config.labels is None
+
+
+def test_labels_override_in_invoke() -> None:
+    """Test that `labels` can be overridden in `invoke()`."""
+    llm = ChatGoogleGenerativeAI(
+        model=MODEL_NAME,
+        google_api_key=SecretStr(FAKE_API_KEY),
+        labels={"env": "staging"},
+    )
+
+    # Override with different labels
+    messages: list[BaseMessage] = [HumanMessage(content="Hello")]
+    request = llm._prepare_request(
+        messages, labels={"env": "production", "team": "ml"}
+    )
+    config = request["config"]
+
+    assert config.labels is not None
+    assert config.labels == {"env": "production", "team": "ml"}
+
+
+def test_labels_no_instance_config_with_override() -> None:
+    """Test that `labels` works when not set at instance level."""
+    llm = ChatGoogleGenerativeAI(
+        model=MODEL_NAME,
+        google_api_key=SecretStr(FAKE_API_KEY),
+    )
+
+    # No instance config, but override in invoke
+    messages: list[BaseMessage] = [HumanMessage(content="Hello")]
+    request = llm._prepare_request(messages, labels={"env": "production"})
+    config = request["config"]
+
+    assert config.labels is not None
+    assert config.labels == {"env": "production"}
+
+
+@pytest.mark.parametrize(
+    "invalid_key",
+    [
+        "InvalidKey",  # starts with uppercase
+        "1invalid",  # starts with number
+        "invalid-Key",  # contains uppercase
+        "-invalid",  # starts with hyphen
+        "_invalid",  # starts with underscore
+    ],
+)
+def test_labels_validation_invalid_key(invalid_key: str) -> None:
+    """Test that invalid label keys raise ValueError."""
+    with pytest.raises(ValueError, match="Invalid label key"):
+        ChatGoogleGenerativeAI(
+            model=MODEL_NAME,
+            google_api_key=SecretStr(FAKE_API_KEY),
+            labels={invalid_key: "value"},
+        )
+
+
+def test_labels_validation_value_too_long() -> None:
+    """Test that label values over 63 characters raise ValueError."""
+    long_value = "a" * 64
+    with pytest.raises(ValueError, match="Label value too long"):
+        ChatGoogleGenerativeAI(
+            model=MODEL_NAME,
+            google_api_key=SecretStr(FAKE_API_KEY),
+            labels={"valid-key": long_value},
+        )
