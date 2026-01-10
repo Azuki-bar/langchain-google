@@ -1,4 +1,5 @@
 import os
+import re
 from importlib import metadata
 from typing import Any
 
@@ -505,6 +506,31 @@ class _BaseGoogleGenerativeAI(BaseModel):
         deterministic. Reproducibility is "best effort" based on the model and
         infrastructure.
     """
+
+    labels: dict[str, str] | None = Field(default=None)
+    """Labels with user-defined metadata to break down billed charges.
+
+    Keys must start with a lowercase letter and contain only lowercase letters,
+    digits, hyphens, and underscores (max 63 characters).
+    Values must be at most 63 characters.
+
+    !!! note "Vertex AI only"
+
+        Labels are only supported when using the Vertex AI backend.
+    """
+
+    @model_validator(mode="after")
+    def _validate_labels(self) -> Self:
+        """Validate label keys and values."""
+        if self.labels:
+            for key, value in self.labels.items():
+                if not re.match(r"^[a-z][a-z0-9-_]{0,62}$", key):
+                    msg = f"Invalid label key: {key}"
+                    raise ValueError(msg)
+                if value and len(value) > 63:
+                    msg = f"Label value too long: {value}"
+                    raise ValueError(msg)
+        return self
 
     @model_validator(mode="after")
     def _resolve_project_from_credentials(self) -> Self:
