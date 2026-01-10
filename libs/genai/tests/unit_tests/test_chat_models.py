@@ -4963,9 +4963,7 @@ def test_labels_override_in_invoke() -> None:
 
     # Override with different labels
     messages: list[BaseMessage] = [HumanMessage(content="Hello")]
-    request = llm._prepare_request(
-        messages, labels={"env": "production", "team": "ml"}
-    )
+    request = llm._prepare_request(messages, labels={"env": "production", "team": "ml"})
     config = request["config"]
 
     assert config.labels is not None
